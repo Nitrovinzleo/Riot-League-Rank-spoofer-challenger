@@ -1,12 +1,10 @@
-//"PUUID (TROUVÉ VIA CTRL+MAJ+I SUR TON PROFIL -> CTRL+F -> taper 'PUUID')": 
-//'BANNER LINK (SUR COMMUNITYDRAGON) LE RANG DE LA BANNIÈRE MODIFIE TON RANG DE LA SAISON PRÉCÉDENTE'
+//"PUUID (FOUND BY CTRL+MAJ+I ON YOUR PROFILE -> CTRL+F -> type 'PUUID')": 
+//'BANNER LINK (CAN BE FOUND ON COMMUNITYDRAGON) THE RANK OF THE BANNER CHANGES YOUR LAST SEASON RANK'
 
 (function () {
   'use strict';
 
-  // === CONFIGURATION DES JOUEURS (V5) ===
   const PLAYERS_CONFIG = {
-    // Exemple de profil configuré (remplace la clé par ton PUUID)
     "f8cfb78f-66e6-5401-a710-02f1491b4c42": {
       tier: 'Challenger',
       div: " ",
@@ -40,7 +38,7 @@
     return filename.split('.')[0].toUpperCase();
   }
 
-  // === 1. HOOK API NATIVE LCU FETCH (Interception réseau directe - NOUVEAUTÉ V5) ===
+  // === 1. HOOK API NATIVE LCU FETCH (English & Multilingual Support) ===
   const originalFetch = window.fetch;
   if (originalFetch && !window._rankModifHookedV5) {
     window._rankModifHookedV5 = true;
@@ -60,7 +58,7 @@
             const tierUpper = conf.tier.toUpperCase();
             const bannerTier = getTierFromBanner(conf.banner);
 
-            // Met à jour la Solo/Duo actuelle
+            // 1. Current Solo/Duo
             if (data.queueMap && data.queueMap.RANKED_SOLO_5x5) {
               const solo = data.queueMap.RANKED_SOLO_5x5;
               solo.tier = tierUpper;
@@ -90,10 +88,11 @@
               data.highestRankedEntry.wins = conf.wins;
             }
 
-            if (data.highestPreviousSeasonEndTier !== undefined) {
-              data.highestPreviousSeasonEndTier = bannerTier;
-              data.highestPreviousSeasonEndDivision = "I";
-            }
+            // 2. Past Ranks / Previous Season Rank (Forces Challenger / banner tier)
+            data.highestPreviousSeasonEndTier = bannerTier;
+            data.highestPreviousSeasonEndDivision = "I";
+            data.highestPreviousSeasonAchievedTier = bannerTier;
+            data.highestPreviousSeasonAchievedDivision = "I";
 
             return new Response(JSON.stringify(data), {
               status: response.status,
@@ -102,7 +101,7 @@
             });
           }
         } catch (e) {
-          // Si erreur de parsing, retourne la réponse originale
+          // Erreur de parsing, retourne la réponse originale
         }
       }
       return response;
@@ -172,7 +171,7 @@
 
       if (title) {
         const titleText = title.textContent.trim().toLowerCase();
-        if (titleText.includes('flex') || titleText.includes('tft')) return;
+        if (titleText.includes('flex') || titleText.includes('tft') || titleText.includes('arena') || titleText.includes('자유')) return;
       }
 
       if (subtitle && wrapperConfig.text) {
@@ -182,7 +181,7 @@
       if (emblem) {
         const tierUpper = wrapperConfig.tier.toUpperCase();
         emblem.setAttribute('ranked-tier', tierUpper);
-        emblem.setAttribute('ranked-division', wrapperConfig.div);
+        emblem.setAttribute('ranked-division', wrapperConfig.div || " ");
         emblem.setAttribute('crest-type', 'ranked');
         emblem.setAttribute('crystal-level', 'DIAMOND');
         emblem.setAttribute('prestige-crest-id', '23');
@@ -196,50 +195,73 @@
   }
 
   function patchTooltipQueues(root = document) {
-    const tooltipSelectors = ['.profile-ranked-emblem-tooltip-container', '.ranked-emblem-tooltip-container', '.tooltip-container', '[class*="tooltip-container"]', '[class*="ranked-tooltip"]'];
+    const tooltipSelectors = [
+      '.profile-ranked-emblem-tooltip-container',
+      '.ranked-emblem-tooltip-container',
+      '.tooltip-container',
+      '[class*="tooltip-container"]',
+      '[class*="ranked-tooltip"]'
+    ];
     let tooltipContainers = [];
     tooltipSelectors.forEach(selector => {
       const elements = root.querySelectorAll(selector);
       if (elements.length > 0) tooltipContainers = tooltipContainers.concat(Array.from(elements));
     });
 
-    const allRankElements = root.querySelectorAll('[class*="ranked"], [class*="rank"], [class*="emblem"], [class*="tier"]');
-    allRankElements.forEach(element => {
-      const text = element.textContent || '';
-      if (text.includes('Last Season') || text.includes('SAISON') || text.includes('Season')) {
-        const elementConfig = getContextConf(element) || getPageAuth();
-        if (!elementConfig) return;
-        const bannerTierU = getTierFromBanner(elementConfig.banner);
-        const tierElements = element.querySelectorAll('[class*="tier"], div[class*="rank"]');
-        tierElements.forEach(tierEl => {
-          if (tierEl.textContent.trim().length > 0 && !tierEl.textContent.includes('Wins') && !tierEl.textContent.includes('LP')) {
-            tierEl.textContent = bannerTierU;
-          }
-        });
-      }
-    });
-
     tooltipContainers.forEach(container => {
-      const queueSelectors = ['.ranked-tooltip-queue', '.ranked-tooltip-last-season', '.tooltip-queue', '[class*="tooltip-queue"]', '[class*="ranked-queue"]', '[class*="last-season"]'];
+      const queueSelectors = [
+        '.ranked-tooltip-queue',
+        '.ranked-tooltip-last-season',
+        '.tooltip-queue',
+        '[class*="tooltip-queue"]',
+        '[class*="ranked-queue"]',
+        '[class*="last-season"]',
+        '[class*="lastseason"]'
+      ];
       let queueBlocks = [];
       queueSelectors.forEach(selector => {
         const elements = container.querySelectorAll(selector);
         if (elements.length > 0) queueBlocks = queueBlocks.concat(Array.from(elements));
       });
 
+      queueBlocks = Array.from(new Set(queueBlocks));
+
       queueBlocks.forEach(queue => {
         const queueConfig = getContextConf(queue) || getPageAuth();
         if (!queueConfig) return;
 
-        const nameSelectors = ['.ranked-tooltip-queue-name', '.ranked-tooltip-last-season-queue-name', '.tooltip-queue-name', '[class*="queue-name"]', '[class*="tooltip-name"]'];
+        const nameSelectors = [
+          '.ranked-tooltip-queue-name',
+          '.ranked-tooltip-last-season-queue-name',
+          '.tooltip-queue-name',
+          '[class*="queue-name"]',
+          '[class*="tooltip-name"]'
+        ];
         let queueName = null;
         for (const selector of nameSelectors) {
-          queueName = queue.querySelector(selector)?.textContent?.trim();
-          if (queueName) break;
+          const el = queue.querySelector(selector);
+          if (el && el.textContent.trim()) {
+            queueName = el.textContent.trim();
+            break;
+          }
         }
 
-        const isSoloDuo = !queueName || queueName === 'Solo/Duo' || queueName === 'SOLO/DUO' || queueName.toLowerCase().includes('solo');
-        const isLastSeason = queueName && (queueName.toLowerCase().includes('last') || queueName.toLowerCase().includes('saison') || queueName.toLowerCase().includes('season'));
+        if (!queueName) return; // Ne pas exécuter si le nom de la queue est introuvable
+
+        const qLower = queueName.toLowerCase();
+
+        // Détection stricte de Solo/Duo (Anglais + Français + Coréen)
+        const isSoloDuo = (qLower.includes('solo') || qLower === 'solo/duo' || queueName.includes('개인')) &&
+                          !qLower.includes('flex') && !qLower.includes('tft') && !qLower.includes('arena');
+
+        // Détection stricte de Past Ranks / Last Season (Anglais + Français + Coréen)
+        const isLastSeason = qLower.includes('last') ||
+                             qLower.includes('past') ||
+                             qLower.includes('previous') ||
+                             qLower.includes('saison préc') ||
+                             qLower.includes('précédente') ||
+                             queueName.includes('지난');
+
         if (!isSoloDuo && !isLastSeason) return;
 
         const data = isSoloDuo ? queueConfig : {
@@ -247,7 +269,7 @@
           tierText: getTierFromBanner(queueConfig.banner)
         };
 
-        const emblemSelectors = ['lol-regalia-emblem-element[ranked-tier]', '.regalia-emblem-element', '[class*="emblem-element"]'];
+        const emblemSelectors = ['lol-regalia-emblem-element', '.regalia-emblem-element', '[class*="emblem-element"]'];
         let emblemElement = null;
         for (const selector of emblemSelectors) {
           emblemElement = queue.querySelector(selector);
@@ -260,7 +282,13 @@
           if (shadowEl) shadowEl.setAttribute('ranked-tier', data.tier.toLowerCase());
         }
 
-        const tierSelectors = ['.ranked-tooltip-queue-tier', '.ranked-tooltip-last-season-queue-tier', '.tooltip-tier', '[class*="tooltip-tier"]', '[class*="queue-tier"]', 'div[class*="tier"]', 'span[class*="tier"]'];
+        const tierSelectors = [
+          '.ranked-tooltip-queue-tier',
+          '.ranked-tooltip-last-season-queue-tier',
+          '.tooltip-tier',
+          '[class*="tooltip-tier"]',
+          '[class*="queue-tier"]'
+        ];
         let tierTextEl = null;
         for (const selector of tierSelectors) {
           tierTextEl = queue.querySelector(selector);
@@ -279,7 +307,7 @@
             lpBlock = queue.querySelector(selector);
             if (lpBlock) break;
           }
-          const html = `<span>${queueConfig.wins}</span> Wins <span>${queueConfig.lp}</span> LP`;
+          const html = `<span>${queueConfig.wins}</span> Wins | <span>${queueConfig.lp}</span> LP`;
           if (!lpBlock) {
             lpBlock = document.createElement('div');
             lpBlock.className = 'style-profile-ranked-crest-tooltip-lp';
@@ -311,7 +339,7 @@
           const tU = c.tier.toUpperCase();
           if (el.getAttribute('ranked-tier') !== tU) {
             el.setAttribute('ranked-tier', tU);
-            el.setAttribute('ranked-division', c.div);
+            el.setAttribute('ranked-division', c.div || " ");
             el.setAttribute('crest-type', 'ranked');
             el.setAttribute('crystal-level', 'DIAMOND');
             el.setAttribute('prestige-crest-id', '23');
@@ -358,5 +386,5 @@
     initializePatching();
   }
 
-  console.log('[RankModif V5] Version V5 initialisée avec succès !');
+  console.log('[RankModif V5] English & Past Ranks Fix Applied!');
 })();
